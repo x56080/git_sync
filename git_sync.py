@@ -1295,7 +1295,7 @@ class GitSyncTool(object):
                             lfs_enabled = self._check_and_setup_lfs(work_dir, repo)
                         else:
                             # Incremental sync: check changed files since last sync
-                            lfs_enabled = self._check_and_setup_lfs(work_dir, repo, from_ref=last_synced_commit, source_branch='source/%s' % source_branch)
+                            lfs_enabled = self._check_and_setup_lfs(work_dir, repo, from_ref=last_synced_commit, to_ref='source/%s' % source_branch)
 
                         if not lfs_enabled:
                             try:
