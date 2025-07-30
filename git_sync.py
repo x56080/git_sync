@@ -1039,31 +1039,9 @@ class GitSyncTool(object):
                     continue
             
             try:
-                # Push tags based on sync mode
-                if is_full_sync:
-                    # Full sync: push tags one by one to avoid large transfers
-                    self.log_info("Full sync: pushing tags individually")
-                    try:
-                        # Get all tags
-                        tags_output = self._run_git_command('git tag -l', cwd=work_dir, check_output=True)
-                        tags = [tag.strip() for tag in tags_output.splitlines() if tag.strip()]
-                        
-                        if tags:
-                            self.log_info("Found %d tags to push" % len(tags))
-                            for tag in tags:
-                                try:
-                                    self._run_git_command('git push origin "%s"' % tag, cwd=work_dir)
-                                    self.log_debug("Pushed tag: %s" % tag)
-                                except Exception as tag_error:
-                                    self.log_warn("Failed to push tag %s: %s" % (tag, str(tag_error)))
-                        else:
-                            self.log_info("No tags found to push")
-                    except Exception as tags_error:
-                        self.log_warn("Failed to get tags list: %s" % str(tags_error))
-                else:
-                    # Incremental sync: push all tags at once
-                    self.log_info("Incremental sync: pushing all tags at once")
-                    self._run_git_command('git push origin --tags', cwd=work_dir)
+                # push all tags at once
+                self.log_info("pushing all tags")
+                self._run_git_command('git push origin --tags', cwd=work_dir)
             except Exception as push_error:
                 self.log_warn("Failed to push tags: %s" % str(push_error))
             
