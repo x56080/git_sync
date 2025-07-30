@@ -726,7 +726,7 @@ class GitSyncTool(object):
             self._run_git_command('git commit -m "%s"' % commit_message, cwd=work_dir)
             
             # Push to remote
-            self._run_git_command('git push origin sync_state --tags', cwd=work_dir)
+            self._run_git_command('git push origin sync_state', cwd=work_dir)
             
             self.log_info("Successfully pushed sync state to remote")
             
@@ -1039,11 +1039,33 @@ class GitSyncTool(object):
                     continue
             
             try:
-                # push all tags to origin
-                self.log_info("Pushing tags to origin")
-                self._run_git_command('git push origin --tags', cwd=work_dir)
-            except:
-                pass
+                # Push tags based on sync mode
+                if is_full_sync:
+                    # Full sync: push tags one by one to avoid large transfers
+                    self.log_info("Full sync: pushing tags individually")
+                    try:
+                        # Get all tags
+                        tags_output = self._run_git_command('git tag -l', cwd=work_dir, check_output=True)
+                        tags = [tag.strip() for tag in tags_output.splitlines() if tag.strip()]
+                        
+                        if tags:
+                            self.log_info("Found %d tags to push" % len(tags))
+                            for tag in tags:
+                                try:
+                                    self._run_git_command('git push origin "%s"' % tag, cwd=work_dir)
+                                    self.log_debug("Pushed tag: %s" % tag)
+                                except Exception as tag_error:
+                                    self.log_warn("Failed to push tag %s: %s" % (tag, str(tag_error)))
+                        else:
+                            self.log_info("No tags found to push")
+                    except Exception as tags_error:
+                        self.log_warn("Failed to get tags list: %s" % str(tags_error))
+                else:
+                    # Incremental sync: push all tags at once
+                    self.log_info("Incremental sync: pushing all tags at once")
+                    self._run_git_command('git push origin --tags', cwd=work_dir)
+            except Exception as push_error:
+                self.log_warn("Failed to push tags: %s" % str(push_error))
             
             # Update sync state only if branches were actually synced
             if synced_count > 0:
@@ -1169,7 +1191,7 @@ class GitSyncTool(object):
                     
                     # Push clean history to destination repository
                     try:
-                        self._run_git_command('git push origin "%s" --tags --force' % dest_branch, cwd=work_dir)
+                        self._run_git_command('git push origin "%s" --force' % dest_branch, cwd=work_dir)
                     except Exception as push_error:
                         self.log_error("Failed to push clean history for branch %s: %s" % (dest_branch, str(push_error)))
                         return 'failed'
@@ -1199,11 +1221,13 @@ class GitSyncTool(object):
                     
                     # Clean working directory to avoid checkout conflicts
                     try:
-                        # First try to reset to HEAD if it exists
+                        # Check if HEAD exists before trying to reset
+                        self._run_git_command('git rev-parse --verify HEAD', cwd=work_dir, check_output=True)
+                        # HEAD exists, safe to reset
                         self._run_git_command('git reset --hard HEAD', cwd=work_dir)
                         self.log_debug("Reset working directory to HEAD")
                     except Exception as reset_error:
-                        self.log_debug("Reset to HEAD failed (may be empty repo): %s" % str(reset_error))
+                        self.log_debug("HEAD not found or reset failed (likely empty repo): %s" % str(reset_error))
                         pass
 
                     try:
@@ -1330,9 +1354,9 @@ class GitSyncTool(object):
                             # Push batch changes to destination repository
                             try:
                                 if is_full_sync:
-                                    self._run_git_command('git push origin "%s" --tags --force' % dest_branch, cwd=work_dir)
+                                    self._run_git_command('git push origin "%s" --force' % dest_branch, cwd=work_dir)
                                 else:
-                                    self._run_git_command('git push origin "%s" --tags' % dest_branch, cwd=work_dir)
+                                    self._run_git_command('git push origin "%s"' % dest_branch, cwd=work_dir)
                             except Exception as push_error:
                                 self.log_error("Failed to push branch %s: %s" % (dest_branch, str(push_error)))
                                 return 'failed'
@@ -1530,10 +1554,10 @@ class GitSyncTool(object):
             # Push individual commit to avoid large data transfer
             try:
                 if force_push:
-                    self._run_git_command('git push origin HEAD --tags --force', cwd=work_dir)
+                    self._run_git_command('git push origin HEAD --force', cwd=work_dir)
                     self.log_debug("Force pushed commit: %s" % commit_hash[:8])
                 else:
-                    self._run_git_command('git push origin HEAD --tags', cwd=work_dir)
+                    self._run_git_command('git push origin HEAD', cwd=work_dir)
                     self.log_debug("Pushed commit: %s" % commit_hash[:8])
             except Exception as push_error:
                 self.log_error("Failed to push commit %s: %s" % (commit_hash[:8], str(push_error)))
