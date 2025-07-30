@@ -289,17 +289,34 @@ class GitSyncTool(object):
             return base_url + '/' + repo_url
     
     def _add_auth_to_url(self, url, username, password):
-        """Add authentication credentials to HTTP URL"""
+        """Add authentication credentials to HTTP URL with proper URL encoding"""
         if not url.startswith(('http://', 'https://')):
             return url
         
         if not username or not password:
             return url
         
-        # Parse URL and insert credentials
+        # URL encode username and password to handle special characters
+        try:
+            # Python 2/3 compatibility for URL encoding
+            if sys.version_info[0] == 2:
+                import urllib
+                encoded_username = urllib.quote(str(username), safe='')
+                encoded_password = urllib.quote(str(password), safe='')
+            else:
+                import urllib.parse
+                encoded_username = urllib.parse.quote(str(username), safe='')
+                encoded_password = urllib.parse.quote(str(password), safe='')
+        except Exception as e:
+            self.log_warn("Failed to URL encode credentials: %s" % str(e))
+            # Fallback to original values if encoding fails
+            encoded_username = str(username)
+            encoded_password = str(password)
+        
+        # Parse URL and insert encoded credentials
         if '://' in url:
             protocol, rest = url.split('://', 1)
-            return "%s://%s:%s@%s" % (protocol, username, password, rest)
+            return "%s://%s:%s@%s" % (protocol, encoded_username, encoded_password, rest)
         
         return url
     
