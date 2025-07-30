@@ -1,0 +1,114 @@
+# Configuration for git-sync-tool
+#
+# The `global` section defines default values for all repositories.
+# Individual repository entries can override these defaults.
+#
+# Indentation MUST be exactly two spaces per level. Do NOT use tabs.
+
+global:
+  # (Optional) Base URL for source repositories if relative paths are used.
+  # If all repositories reside on the same GitLab instance, set this.
+  # Otherwise, leave empty and specify full URLs in each repo entry.
+  source_base_url: "http://gitlab.sequoiadb.com/"
+
+  # (Optional) Base URL for destination repositories if relative paths are used.
+  # If all repos push to the same GitHub/GitLab organization, set this.
+  # Otherwise, leave empty and specify full URLs per repository.
+  dest_base_url: "https://github.com/test/"
+
+  # (Optional) Name to use for commits created by this sync tool
+  # Applies to sync-state branch updates and any replayed commits.
+  # Default: "sync_tool"
+  commit_user_name: "sync_tool"
+
+  # (Optional) Email address to use for commits created by this sync tool
+  # Applies to sync-state branch updates and any replayed commits.
+  # Default: "sync_tool@example.com"
+  commit_user_email: "sync_tool@example.com"
+
+  # (Optional) Global authentication settings. Repository entries may override.
+  auth:
+    # "ssh" or "http"
+    type: "http"
+    # Path to private SSH key (for SSH auth). Unquoted or quoted is fine.
+    # ssh_private_key: "~/.ssh/id_rsa_global"
+    # For HTTP auth, comment out the above `ssh_private_key` and use:
+    username: "test"
+    # password can be your account password or a Personal Access Token (classic)
+    # (e.g. from GitHub Settings → Developer settings → Personal access tokens)
+    password: "test_password"
+
+  # (Optional) If any single blob/object is larger than this (MB), trigger LFS.
+  # Default: 50
+  lfs_file_threshold_mb: 200
+
+  # (Optional) If the entire bare mirror repo is larger than this (MB), trigger LFS.
+  # Default: 200
+  lfs_total_threshold_mb: 5000
+
+  # (Optional) Workspace (local directory) where all repos will be cloned.
+  # Must be an absolute path. Repo-specific entries can override.
+  workspace: "."
+
+repositories:
+  - name: "sdb_ycsb"
+    # Source repository URL.
+    # If starts with "http://" or "git@", will be used as-is.
+    # Otherwise, it will be combined with global.source_base_url.
+    source_repo: "http://gitlab.com/test/test.git"
+
+    # Destination repository URL.
+    # If starts with "http://" or "git@", used as-is.
+    # Otherwise, combined with global.dest_base_url.
+    dest_repo: "https://github.com/test/test.git"
+
+    # (Optional) If true and mode=full, cleans history (only keep latest commit).
+    # Default: false
+    clean_history: false
+
+    # (Optional) Override workspace for this repo.
+    # workspace: ""
+
+    # (Optional) Repository-specific auth. Overrides global.auth.
+    auth:
+      # type: "http"
+      # username: "test"
+      # password: ""
+      # If you prefer SSH for this repo, use:
+      # type: "ssh"
+      # ssh_private_key: "~/.ssh/id_rsa_service_a"
+
+    # (Optional) Force-enable Git LFS, regardless of size.
+    enable_lfs: false
+
+    # (Optional) Override per-file threshold for this repo
+    lfs_file_threshold_mb: 200
+
+    # (Optional) Override total-repo threshold for this repo
+    lfs_total_threshold_mb: 5000
+
+    # (Optional) Branch renaming / mapping.
+    # Format: "sourceBranch": "destBranch". If not listed, sourceBranch=destBranch.
+    branch_map:
+      #"develop": "dev-mirror"
+      #"feature/x": "feature/x-mirror"
+
+    # (Optional) List of branch patterns to ignore. Use shell globs, e.g. "wip/*".
+    ignore_branches:
+      #- "wip/*"
+      #- "temp-*"
+
+
+  #- name: "service-b"
+    # Full URL because no global.source_base_url is assumed
+    #source_repo: "git@gitlab.my-company.com:group/service-b.git"
+    #dest_repo: "git@github.com:my-org/service-b.git"
+    # clean_history not set => default false
+
+    # Will inherit global.auth (SSH) and global.workspace
+    # LFS threshold will also inherit global value
+
+    # No branch_map or ignore_branches => all branches are synced same name
+
+  # You can add more repository entries below, following the same structure.
+  # Each entry must have at least `name`, `source_repo`, and `dest_repo`.
