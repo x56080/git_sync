@@ -956,7 +956,9 @@ class GitSyncTool(object):
                 raise Exception("Failed to setup unified work directory")
             
             # Fetch latest changes from source remote
-            self._run_git_command('git fetch --tags source --prune', cwd=work_dir)
+            self._run_git_command('git fetch source --prune', cwd=work_dir)
+            # Fetch all tags
+            self._run_git_command('git fetch source --tags', cwd=work_dir)
             
             # Get branches from source remote
             source_branches = self._get_branches(work_dir, remote_only=True, remote_prefix='source/')
