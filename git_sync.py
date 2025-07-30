@@ -1195,14 +1195,21 @@ class GitSyncTool(object):
                     # For existing repository, perform cherry-pick based sync
                     self.log_info("Syncing branch %s using cherry-pick strategy" % dest_branch)
                     
+                    # Clean working directory to avoid checkout conflicts
                     try:
-                        self._run_git_command('git clean -fdx', cwd=work_dir)
-                    except:
+                        # First try to reset to HEAD if it exists
+                        self._run_git_command('git reset --hard HEAD', cwd=work_dir)
+                        self.log_debug("Reset working directory to HEAD")
+                    except Exception as reset_error:
+                        self.log_debug("Reset to HEAD failed (may be empty repo): %s" % str(reset_error))
                         pass
 
                     try:
-                        self._run_git_command('git reset --hard', cwd=work_dir)
-                    except:
+                        # Clean untracked files and directories
+                        self._run_git_command('git clean -fdx', cwd=work_dir)
+                        self.log_debug("Cleaned untracked files from working directory")
+                    except Exception as clean_error:
+                        self.log_debug("Clean untracked files failed: %s" % str(clean_error))
                         pass
 
                     # Ensure we're on the correct destination branch
@@ -1213,12 +1220,12 @@ class GitSyncTool(object):
                         try:
                             self._run_git_command('git show-ref --verify refs/heads/%s' % dest_branch, cwd=work_dir, check_output=True)
                             # Local branch exists, switch and reset to origin
-                            self._run_git_command('git checkout %s' % dest_branch, cwd=work_dir)
+                            self._run_git_command('git checkout --force %s' % dest_branch, cwd=work_dir)
                             self._run_git_command('git reset --hard origin/%s' % dest_branch, cwd=work_dir)
                             self.log_info("Switched to existing local branch %s and reset to origin" % dest_branch)
                         except:
                             # Local branch doesn't exist, create from origin
-                            self._run_git_command('git checkout -b "%s" origin/%s' % (dest_branch, dest_branch), cwd=work_dir)
+                            self._run_git_command('git checkout --force -b "%s" origin/%s' % (dest_branch, dest_branch), cwd=work_dir)
                             self.log_info("Created local branch %s from origin/%s" % (dest_branch, dest_branch))
                     except:
                         # Origin branch doesn't exist, create new branch from source
@@ -1246,7 +1253,7 @@ class GitSyncTool(object):
                                 else:
                                     self.log_debug("Skipping branch deletion in empty repository")
 
-                            self._run_git_command('git checkout -b "%s" source/%s' % (dest_branch, source_branch), cwd=work_dir)
+                            self._run_git_command('git checkout --force -b "%s" source/%s' % (dest_branch, source_branch), cwd=work_dir)
                             self._run_git_command('git reset --hard "%s"' % source_commit['hash'], cwd=work_dir)
                             self.log_info("Created new branch %s from source/%s" % (dest_branch, source_branch))
 
