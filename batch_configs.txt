@@ -1,0 +1,13 @@
+# Git Sync Batch Configuration List
+# Each line contains a sync command to be executed
+# Lines starting with # are comments and will be ignored
+# Empty lines are also ignored
+
+# Example sync commands - modify these according to your actual config files
+# python ./git_sync.py --config sync_example.yaml
+
+# You can also add verbose mode for specific configs if needed
+# python ./git_sync.py --config sync_config.yaml --verbose
+
+# Or specify different Python versions if needed
+# python3 ./git_sync_py3.py --config sync_config.yaml
