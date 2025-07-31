@@ -1,6 +1,6 @@
-# Git Sync Tool - Python 2.7 Implementation
+# Git Sync Tool - Python 2.7 & Python 3 Implementation
 
-一个用Python 2.7实现的高性能Git仓库同步工具，支持全量/增量同步、分支映射、LFS处理、智能错误处理等企业级功能。
+一个高性能Git仓库同步工具，支持Python 2.7和Python 3两个版本，提供全量/增量同步、分支映射、LFS处理、智能错误处理等企业级功能。
 
 ## 🚀 核心特性
 
@@ -26,16 +26,35 @@
 
 ## 系统要求
 
-- Python 2.7
+### 支持的Python版本
+- **Python 2.7** - 使用 `git_sync.py`
+- **Python 3.x** - 使用 `git_sync_py3.py` (推荐)
+
+### 其他依赖
 - Git (必需)
 - Git LFS (可选，仅在使用LFS功能时需要)
 - PyYAML库
 
 ## 安装依赖
 
+### Python 2.7 版本
 ```bash
 # 安装PyYAML
 pip install PyYAML
+
+# 确保Git已安装
+git --version
+
+# 如果需要LFS支持，安装Git LFS
+git lfs install
+```
+
+### Python 3 版本 (推荐)
+```bash
+# 安装PyYAML
+pip3 install PyYAML
+# 或者使用
+python3 -m pip install PyYAML
 
 # 确保Git已安装
 git --version
@@ -48,6 +67,7 @@ git lfs install
 
 ### 基本用法
 
+#### Python 2.7 版本
 ```bash
 # 使用配置文件进行同步
 python git_sync.py --config config.yaml
@@ -57,6 +77,18 @@ python git_sync.py --config config.yaml --force-full
 
 # 启用详细输出
 python git_sync.py --config config.yaml -v
+```
+
+#### Python 3 版本 (推荐)
+```bash
+# 使用配置文件进行同步
+python3 git_sync_py3.py --config config.yaml
+
+# 强制全量同步所有仓库
+python3 git_sync_py3.py --config config.yaml --force-full
+
+# 启用详细输出
+python3 git_sync_py3.py --config config.yaml -v
 ```
 
 ### 配置文件
@@ -304,7 +336,10 @@ Git LFS: (0 of 1 files) 0 B / 100.0 MB
 
 ```bash
 # 启用详细输出查看详细日志（包含行号）
+# Python 2.7 版本
 python git_sync.py --config config.yaml -v
+# Python 3 版本
+python3 git_sync_py3.py --config config.yaml -v
 
 # 检查Git和LFS版本兼容性
 git --version
@@ -361,9 +396,82 @@ repositories:
       - "temp/*"
 ```
 
+## 📊 版本对比
+
+### Python 2.7 vs Python 3 版本特性对比
+
+| 特性 | Python 2.7 版本 | Python 3 版本 | 说明 |
+|------|-----------------|---------------|------|
+| **文件名** | `git_sync.py` | `git_sync_py3.py` | 两个独立的文件 |
+| **核心功能** | ✅ 完整支持 | ✅ 完整支持 | 功能完全一致 |
+| **同步策略** | ✅ Cherry-pick | ✅ Cherry-pick | 保护目标分支历史 |
+| **LFS 支持** | ✅ 智能检测 | ✅ 智能检测 | 自动启用大文件处理 |
+| **分支映射** | ✅ 支持 | ✅ 支持 | 复杂映射规则 |
+| **认证方式** | ✅ HTTP/SSH | ✅ HTTP/SSH | 多种认证方式 |
+| **URL 编码** | ✅ 手动实现 | ✅ 原生支持 | Python 3 使用 urllib.parse |
+| **字符串格式化** | % 格式化 | .format() 方法 | Python 3 更现代化 |
+| **错误处理** | ✅ 完整 | ✅ 完整 | 异常处理机制一致 |
+| **性能** | 良好 | 更优 | Python 3 性能优化 |
+| **维护性** | 稳定 | 推荐 | Python 3 是未来趋势 |
+
+### 选择建议
+
+#### 🟢 推荐使用 Python 3 版本 (`git_sync_py3.py`)
+**适用场景：**
+- 新项目或新环境
+- 追求更好的性能和现代化语法
+- 长期维护的项目
+- 团队主要使用 Python 3
+
+**优势：**
+- 更好的 Unicode 支持
+- 原生 URL 编码处理
+- 更现代化的代码结构
+- 更好的性能表现
+- 持续的官方支持
+
+#### 🟡 保留 Python 2.7 版本 (`git_sync.py`)
+**适用场景：**
+- 现有 Python 2.7 环境
+- 无法升级到 Python 3 的遗留系统
+- 需要与现有 Python 2.7 代码集成
+
+**注意事项：**
+- Python 2.7 已停止官方支持
+- 建议逐步迁移到 Python 3
+- 功能和安全性与 Python 3 版本一致
+
+### 迁移指南
+
+如果你当前使用 Python 2.7 版本，迁移到 Python 3 版本非常简单：
+
+```bash
+# 1. 确保 Python 3 环境
+python3 --version
+
+# 2. 安装依赖
+pip3 install PyYAML
+
+# 3. 替换命令
+# 原来：python git_sync.py --config config.yaml
+# 现在：python3 git_sync_py3.py --config config.yaml
+```
+
+**配置文件无需修改**：两个版本使用相同的配置文件格式。
+
 ## 🔄 版本更新日志
 
-### v2.0 (最新)
+### v2.1 (最新) - Python 3 支持
+- 🆕 **Python 3 完整版本** - 新增 `git_sync_py3.py`
+- ✅ 功能完全对等 - 与 Python 2.7 版本功能一致
+- ✅ 现代化语法 - 使用 `.format()` 字符串格式化
+- ✅ 原生 URL 编码 - 使用 `urllib.parse` 处理特殊字符
+- ✅ 性能优化 - Python 3 原生性能提升
+- ✅ 向后兼容 - 保留 Python 2.7 版本支持
+- ✅ 统一配置 - 两版本使用相同配置文件格式
+- 📚 完整文档 - 详细的版本对比和迁移指南
+
+### v2.0 - 架构重构
 - ✅ 统一工作目录架构，大幅提升性能
 - ✅ 智能push失败处理和统计
 - ✅ 空仓库和无效HEAD引用处理
@@ -382,9 +490,11 @@ repositories:
 ## 📞 技术支持
 
 ### 获取帮助
-- 启用详细日志：`python git_sync.py --config config.yaml -v`
+- 启用详细日志：
+  - Python 2.7: `python git_sync.py --config config.yaml -v`
+  - Python 3: `python3 git_sync_py3.py --config config.yaml -v`
 - 查看配置示例：参考 `config_example.yaml`
-- 检查系统兼容性：确保Python 2.7和Git版本兼容
+- 检查系统兼容性：确保Python和Git版本兼容
 
 ### 贡献代码
 欢迎提交Issue和Pull Request来改进这个工具！
