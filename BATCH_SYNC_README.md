@@ -21,7 +21,7 @@ Git Sync Batch Tool 提供跨平台的批量同步解决方案，支持一次性
 | 循环执行模式 | ✅ `--count` + `--interval` | ✅ `--count` + `--interval` |
 | 多轮执行控制 | ✅ `-n/--count` 参数 | ✅ `-n/--count` 参数 |
 | 进程管理 | ✅ `--stop`, `--status` | ❌ 已移除 |
-| 日志目录设置 | ✅ `--log-dir` | ❌ |
+| 日志目录设置 | ✅ `--log-dir` | ✅ `--log-dir` |
 | 详细输出 | ✅ `--verbose` | ✅ `--verbose` |
 | 命令输出控制 | 屏幕+日志 | 仅日志记录 |
 
@@ -76,8 +76,9 @@ git_sync_batch.bat [OPTIONS]
 |------|------|--------|
 | `-o, --once` | 执行一次批量同步后退出 | - |
 | `-n, --count NUMBER` | 设置执行轮数 | `1` |
-| `-w, --interval SECONDS` | 设置执行间隔（秒） | `60` |
+| `-t, --interval SECONDS` | 设置执行间隔（秒） | `3600` |
 | `-c, --config-list FILE` | 指定配置列表文件 | `batch_configs.txt` |
+| `-l, --log-dir DIR` | 指定日志目录 | `./logs` |
 | `-v, --verbose` | 启用详细输出 | - |
 | `-h, --help` | 显示帮助信息 | - |
 
