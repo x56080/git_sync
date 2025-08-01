@@ -46,6 +46,7 @@ Usage: $0 [OPTIONS]
 OPTIONS:
     -c, --config-list FILE    Specify config list file (default: batch_configs.txt)
     -i, --interval SECONDS    Set sync interval in seconds (default: 86400 = 24 hours)
+    -n, --count NUMBER        Set number of sync rounds (default: 1)
     -o, --once               Run synchronization once and exit
     -d, --daemon             Run as daemon (background process)
     -s, --stop               Stop running daemon
@@ -58,8 +59,14 @@ EXAMPLES:
     # Run once with default config list
     $0 --once
 
-    # Run as daemon with 12-hour interval
-    $0 --daemon --interval 43200
+    # Run 3 rounds with 5-minute intervals
+    $0 --count 3 --interval 300
+
+    # Run once with 2 rounds
+    $0 --once --count 2 --interval 60
+
+    # Run as daemon with 12-hour interval and 2 rounds per cycle
+    $0 --daemon --interval 43200 --count 2
 
     # Run once with custom config list
     $0 --once --config-list my_configs.txt
@@ -292,6 +299,7 @@ execute_sync_batch() {
 run_daemon() {
     local config_file="$1"
     local interval="$2"
+    local count="$3"
     
     # Check if already running
     if is_daemon_running; then
@@ -301,6 +309,7 @@ run_daemon() {
     
     log_info "Starting daemon mode..."
     log_info "Sync interval: ${interval}s ($(($interval / 3600))h $(($interval % 3600 / 60))m)"
+    log_info "Sync count per cycle: $count"
     log_info "Config file: $config_file"
     
     # Fork to background
@@ -311,9 +320,25 @@ run_daemon() {
         log_info "Daemon started (PID: $$)"
         
         while true; do
-            execute_sync_batch "$config_file"
+            if [[ $count -gt 1 ]]; then
+                # Execute multiple rounds in this cycle
+                log_info "Starting daemon cycle with $count rounds"
+                for ((round=1; round<=count; round++)); do
+                    log_info "Daemon cycle round $round of $count"
+                    execute_sync_batch "$config_file"
+                    
+                    # Short pause between rounds within the same cycle (except last round)
+                    if [[ $round -lt $count ]]; then
+                        sleep 30  # 30 seconds between rounds
+                    fi
+                done
+                log_info "Daemon cycle completed ($count rounds)"
+            else
+                # Single execution per cycle
+                execute_sync_batch "$config_file"
+            fi
             
-            log_info "Next sync in ${interval}s ($(date -d "+${interval} seconds" '+%Y-%m-%d %H:%M:%S'))"
+            log_info "Next sync cycle in ${interval}s ($(date -d "+${interval} seconds" '+%Y-%m-%d %H:%M:%S'))"
             
             # Sleep with interruption check
             local remaining=$interval
@@ -348,9 +373,60 @@ run_daemon() {
     fi
 }
 
+# Function to run with specified count and interval
+run_count() {
+    local config_file="$1"
+    local count="$2"
+    local interval="$3"
+    
+    log_info "Starting batch sync with $count rounds"
+    log_info "Interval between rounds: ${interval}s"
+    log_info "Config file: $config_file"
+    
+    local total_success=0
+    local total_failed=0
+    local start_time=$(date '+%s')
+    
+    for ((round=1; round<=count; round++)); do
+        log_info "Starting batch sync - Round $round of $count"
+        
+        # Execute sync batch and capture return code
+        if execute_sync_batch "$config_file"; then
+            log_success "Round $round completed successfully"
+            ((total_success++))
+        else
+            local failed_count=$?
+            log_error "Round $round completed with $failed_count failures"
+            ((total_failed+=failed_count))
+        fi
+        
+        # Wait before next round (except for the last round)
+        if [[ $round -lt $count ]]; then
+            log_info "Waiting $interval seconds until next sync..."
+            sleep "$interval"
+        fi
+    done
+    
+    local total_duration=$(($(date '+%s') - start_time))
+    
+    # Final summary
+    log_info "All rounds completed!"
+    log_info "Total rounds: $count"
+    log_success "Successful rounds: $total_success"
+    
+    if [[ $total_failed -gt 0 ]]; then
+        log_error "Failed commands: $total_failed"
+    fi
+    
+    log_info "Total duration: ${total_duration}s"
+    
+    return $total_failed
+}
+
 # Parse command line arguments
 CONFIG_LIST="$DEFAULT_CONFIG_LIST"
 INTERVAL="$DEFAULT_INTERVAL"
+COUNT=1
 RUN_ONCE=false
 RUN_DAEMON=false
 STOP_DAEMON=false
@@ -365,6 +441,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -i|--interval)
             INTERVAL="$2"
+            shift 2
+            ;;
+        -n|--count)
+            COUNT="$2"
             shift 2
             ;;
         -o|--once)
@@ -409,6 +489,12 @@ if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -lt 1 ]]; then
     exit 1
 fi
 
+# Validate count
+if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [[ "$COUNT" -lt 1 ]]; then
+    log_error "Invalid count: $COUNT (must be a positive integer)"
+    exit 1
+fi
+
 # Create log directory
 create_log_dir
 
@@ -435,13 +521,25 @@ fi
 
 # Execute based on mode
 if [[ "$RUN_ONCE" == "true" ]]; then
-    execute_sync_batch "$CONFIG_LIST"
-    exit $?
+    if [[ "$COUNT" -gt 1 ]]; then
+        # Run once with specified count
+        run_count "$CONFIG_LIST" "$COUNT" "$INTERVAL"
+        exit $?
+    else
+        # Single execution
+        execute_sync_batch "$CONFIG_LIST"
+        exit $?
+    fi
 elif [[ "$RUN_DAEMON" == "true" ]]; then
-    run_daemon "$CONFIG_LIST" "$INTERVAL"
+    # Daemon mode with count support
+    run_daemon "$CONFIG_LIST" "$INTERVAL" "$COUNT"
     exit 0
+elif [[ "$COUNT" -gt 1 ]]; then
+    # Run with specified count and interval (non-daemon mode)
+    run_count "$CONFIG_LIST" "$COUNT" "$INTERVAL"
+    exit $?
 else
-    log_error "Please specify either --once or --daemon mode"
+    log_error "Please specify either --once, --daemon, or --count mode"
     show_usage
     exit 1
 fi
