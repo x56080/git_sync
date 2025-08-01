@@ -2,28 +2,40 @@
 
 ## 概述
 
-Git Sync Batch Tool 是一个批量同步脚本，可以自动执行多个 Git 仓库的同步任务。支持一次性执行和定时循环执行两种模式。
+Git Sync Batch Tool 提供跨平台的批量同步解决方案，支持一次性执行多个 Git 仓库的同步任务。根据不同平台的特点，提供了两种不同的实现方式。
 
 ## 文件说明
 
-- `git_sync_batch.sh` - Linux/Unix/macOS 版本的批量同步脚本
-- `git_sync_batch.bat` - Windows 版本的批量同步脚本
+- `git_sync_batch.sh` - Linux/Unix/macOS 版本（完整功能版）
+- `git_sync_batch.bat` - Windows 版本（简化版）
 - `batch_configs.txt` - 默认的配置列表文件，包含要执行的同步命令
 
-## 功能特性
+## 版本差异
 
-### 🚀 核心功能
-- **批量执行**：从配置文件中读取多个同步命令并依次执行
-- **定时同步**：支持设置间隔时间，自动循环执行批量同步
-- **后台运行**：支持守护进程模式，在后台持续运行
-- **日志记录**：详细的执行日志，包含成功/失败统计
-- **进程管理**：启动、停止、状态查询等完整的进程管理功能
+### 📋 功能对比
 
-### 🛡️ 安全特性
-- **PID 管理**：防止重复启动守护进程
-- **优雅关闭**：支持信号处理和优雅关闭
-- **错误处理**：完善的错误处理和恢复机制
-- **日志轮转**：按日期分割日志文件
+| 功能特性 | Linux/Unix/macOS (.sh) | Windows (.bat) |
+|---------|----------------------|----------------|
+| 一次性批量同步 | ✅ `--once` | ✅ `--once` |
+| 守护进程模式 | ✅ `--daemon` | ❌ 已移除 |
+| 循环执行模式 | ❌ | ✅ `--count` + `--interval` |
+| 进程管理 | ✅ `--stop`, `--status` | ❌ 已移除 |
+| 日志目录设置 | ✅ `--log-dir` | ❌ |
+| 详细输出 | ✅ `--verbose` | ✅ `--verbose` |
+
+### 🏗️ 架构特点
+
+**Linux/Unix/macOS 版本**：
+- **完整功能**：保留传统的守护进程架构
+- **后台运行**：支持真正的守护进程模式
+- **进程管理**：完整的启动、停止、状态查询功能
+- **灵活配置**：支持自定义日志目录等高级选项
+
+**Windows 版本**：
+- **简化架构**：移除复杂的守护进程逻辑，专注核心功能
+- **循环执行**：支持设置执行轮数和间隔时间
+- **稳定可靠**：优化的错误处理和参数验证
+- **易于使用**：简洁的命令行界面和清晰的输出
 
 ## 使用方法
 
@@ -41,17 +53,34 @@ git_sync_batch.bat [OPTIONS]
 
 ### 命令行选项
 
+#### Linux/Unix/macOS 版本 (.sh)
+
 | 选项 | 说明 | 默认值 |
 |------|------|--------|
-| `-c, --config-list FILE` | 指定配置列表文件 | `batch_configs.txt` |
-| `-i, --interval SECONDS` | 设置同步间隔（秒） | `86400` (24小时) |
-| `-o, --once` | 执行一次同步后退出 | - |
+| `-o, --once` | 执行一次批量同步后退出 | - |
 | `-d, --daemon` | 以守护进程模式运行 | - |
 | `-s, --stop` | 停止正在运行的守护进程 | - |
 | `-t, --status` | 查看守护进程状态 | - |
+| `-c, --config-list FILE` | 指定配置列表文件 | `batch_configs.txt` |
+| `-i, --interval SECONDS` | 设置同步间隔（秒） | `86400` (24小时) |
 | `-l, --log-dir DIR` | 指定日志目录 | `./logs` |
 | `-v, --verbose` | 启用详细输出 | - |
 | `-h, --help` | 显示帮助信息 | - |
+
+#### Windows 版本 (.bat)
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `-o, --once` | 执行一次批量同步后退出 | - |
+| `-n, --count NUMBER` | 设置执行轮数 | `1` |
+| `-w, --interval SECONDS` | 设置执行间隔（秒） | `60` |
+| `-c, --config-list FILE` | 指定配置列表文件 | `batch_configs.txt` |
+| `-v, --verbose` | 启用详细输出 | - |
+| `-h, --help` | 显示帮助信息 | - |
+
+**架构说明**：
+- **Linux 版本**：保留完整的守护进程功能，适合服务器环境长期运行
+- **Windows 版本**：简化为循环执行模式，专注批量同步核心功能
 
 ## 配置文件格式
 
@@ -77,7 +106,7 @@ python3 ./git_sync_py3.py --config sync_config.yaml
 
 ## 使用示例
 
-### 1. 一次性批量同步
+### 1. 一次性批量同步（两个版本通用）
 
 **Linux/Unix/macOS:**
 ```bash
@@ -103,9 +132,8 @@ git_sync_batch.bat --once --config-list my_configs.txt
 git_sync_batch.bat --once --verbose
 ```
 
-### 2. 定时循环同步
+### 2. Linux/Unix/macOS 版本：守护进程模式
 
-**Linux/Unix/macOS:**
 ```bash
 # 每24小时同步一次（默认）
 ./git_sync_batch.sh --daemon
@@ -116,97 +144,124 @@ git_sync_batch.bat --once --verbose
 # 每6小时同步一次
 ./git_sync_batch.sh --daemon --interval 21600
 
-# 每小时同步一次
-./git_sync_batch.sh --daemon --interval 3600
+# 使用自定义配置文件启动守护进程
+./git_sync_batch.sh --daemon --config-list prod_configs.txt
+
+# 查看守护进程状态
+./git_sync_batch.sh --status
+
+# 停止守护进程
+./git_sync_batch.sh --stop
 ```
 
-**Windows:**
+### 3. Windows 版本：循环执行模式
+
 ```cmd
-# 每24小时同步一次（默认）
-git_sync_batch.bat --daemon
+# 执行2轮同步，每轮间隔60秒（默认）
+git_sync_batch.bat --count 2
 
-# 每12小时同步一次
-git_sync_batch.bat --daemon --interval 43200
+# 执行3轮同步，每轮间隔300秒（5分钟）
+git_sync_batch.bat --count 3 --interval 300
 
-# 每6小时同步一次
-git_sync_batch.bat --daemon --interval 21600
-```
+# 执行5轮同步，每轮间隔1800秒（30分钟）
+git_sync_batch.bat --count 5 --interval 1800
 
-### 3. 守护进程管理
-
-**查看状态:**
-```bash
-./git_sync_batch.sh --status        # Linux/Unix/macOS
-git_sync_batch.bat --status         # Windows
-```
-
-**停止守护进程:**
-```bash
-./git_sync_batch.sh --stop          # Linux/Unix/macOS
-git_sync_batch.bat --stop           # Windows
+# 使用自定义配置文件进行循环同步
+git_sync_batch.bat --count 3 --config-list my_configs.txt
 ```
 
 ## 日志系统
 
-### 日志文件位置
-- 默认日志目录：`./logs/`
-- 日志文件命名：`batch_YYYYMMDD.log`
-- 每天自动创建新的日志文件
-
-### 日志内容
-- 执行时间戳
-- 命令执行详情
-- 成功/失败状态
-- 错误信息和堆栈
-- 执行统计摘要
+### 日志输出
+- **实时显示**：执行过程中实时显示进度和结果
+- **统计信息**：每轮显示总数、成功数、失败数
+- **时间记录**：详细的时间戳和持续时间
+- **错误信息**：失败命令的详细错误信息
 
 ### 日志示例
 ```
-==========================================
-Batch Sync Started: 2024-01-15 09:00:00
-Config File: batch_configs.txt
-==========================================
-Command 1: python ./git_sync.py --config sync_sdb_mirror_to_github.yaml
-[SUCCESS] Sync completed successfully
-Duration: 45s
-----------------------------------------
-Command 2: python ./git_sync.py --config sync_sac_to_github.yaml
-[SUCCESS] Sync completed successfully
-Duration: 32s
-----------------------------------------
-==========================================
-Batch Sync Completed: 2024-01-15 09:01:17
-Total Commands: 2
-Successful: 2
-Failed: 0
-Duration: 77s
-==========================================
+[INFO] Starting batch sync - Round 1 of 2
+[INFO] Config file: batch_configs.txt
+[INFO] Found 3 sync commands
+
+[INFO] Executing command 1/3: python ./git_sync.py --config sync_config1.yaml
+[SUCCESS] Command completed successfully
+
+[INFO] Executing command 2/3: python ./git_sync.py --config sync_config2.yaml
+[SUCCESS] Command completed successfully
+
+[INFO] Executing command 3/3: python ./git_sync.py --config sync_config3.yaml
+[SUCCESS] Command completed successfully
+
+[INFO] Round 1 completed - Total: 3, Success: 3, Failed: 0
+[INFO] Waiting 60 seconds until next sync...
+
+[INFO] Starting batch sync - Round 2 of 2
+[INFO] Round 2 completed - Total: 3, Success: 3, Failed: 0
+
+[INFO] All rounds completed successfully!
 ```
 
 ## 常见使用场景
 
-### 1. 每日自动同步
+### Linux/Unix/macOS 版本场景
+
+#### 1. 服务器环境长期运行
 ```bash
-# 设置每天凌晨2点自动同步
+# 生产环境每天凌晨2点自动同步
 ./git_sync_batch.sh --daemon --interval 86400
+
+# 开发环境每6小时同步一次
+./git_sync_batch.sh --daemon --interval 21600
 ```
 
-### 2. 开发环境快速同步
+#### 2. 守护进程管理
 ```bash
-# 开发期间每小时同步一次
-./git_sync_batch.sh --daemon --interval 3600
+# 启动守护进程
+./git_sync_batch.sh --daemon --config-list prod_configs.txt
+
+# 监控运行状态
+./git_sync_batch.sh --status
+
+# 维护时停止服务
+./git_sync_batch.sh --stop
 ```
 
-### 3. 手动批量同步
+### Windows 版本场景
+
+#### 1. 定时批量同步
+```cmd
+# 每天执行3轮同步，每轮间隔8小时
+git_sync_batch.bat --count 3 --interval 28800
+
+# 工作日每2小时同步一次，连续4轮
+git_sync_batch.bat --count 4 --interval 7200
+```
+
+#### 2. 开发环境快速同步
+```cmd
+# 开发期间每30分钟同步一次，连续执行5轮
+git_sync_batch.bat --count 5 --interval 1800
+```
+
+### 通用场景
+
+#### 3. 手动批量同步
 ```bash
-# 需要时手动执行一次完整同步
+# Linux/macOS
 ./git_sync_batch.sh --once --verbose
+
+# Windows
+git_sync_batch.bat --once --verbose
 ```
 
-### 4. 测试配置
+#### 4. 测试配置
 ```bash
-# 使用测试配置文件验证设置
+# Linux/macOS
 ./git_sync_batch.sh --once --config-list test_configs.txt
+
+# Windows
+git_sync_batch.bat --once --config-list test_configs.txt
 ```
 
 ## 错误处理
@@ -227,12 +282,13 @@ Duration: 77s
    - 检查配置文件格式
    - 确保至少有一行有效的 python 命令
 
-3. **守护进程已在运行**
+3. **参数验证错误**
    ```
-   [ERROR] Daemon is already running (PID: 12345)
+   [ERROR] Invalid count value. Please provide a positive integer.
+   [ERROR] Invalid interval value. Please provide a positive integer.
    ```
-   - 先停止现有守护进程：`--stop`
-   - 或查看状态：`--status`
+   - 确保 --count 和 --interval 参数为正整数
+   - 检查参数格式是否正确
 
 4. **权限问题**
    - Linux/Unix/macOS：确保脚本有执行权限 `chmod +x git_sync_batch.sh`
@@ -245,14 +301,15 @@ Duration: 77s
    ./git_sync_batch.sh --once --verbose
    ```
 
-2. **查看日志文件**
-   ```bash
-   tail -f logs/batch_$(date +%Y%m%d).log
-   ```
-
-3. **测试单个命令**
+2. **测试单个命令**
    ```bash
    python ./git_sync.py --config sync_config.yaml --verbose
+   ```
+
+3. **验证配置文件**
+   ```bash
+   # 检查配置文件内容
+   cat batch_configs.txt
    ```
 
 ## 最佳实践
@@ -261,46 +318,114 @@ Duration: 77s
 - 为不同环境创建不同的配置列表文件
 - 使用有意义的文件名，如：`prod_configs.txt`、`dev_configs.txt`
 - 在配置文件中添加详细注释
+- 定期验证配置文件中的命令是否有效
 
-### 2. 监控和维护
-- 定期检查日志文件
-- 监控守护进程状态
-- 设置日志文件清理策略
+### 2. 执行策略
+- 根据仓库大小和网络状况调整执行间隔
+- 避免在网络高峰时段执行大量同步
+- 对于大型仓库，适当增加执行间隔
+- 使用 --verbose 模式进行首次测试
 
 ### 3. 安全考虑
 - 确保配置文件权限设置正确
 - 定期更新认证信息
 - 在生产环境中使用专用用户运行
+- 避免在配置文件中硬编码敏感信息
 
-### 4. 性能优化
-- 根据仓库大小调整同步间隔
-- 避免在高峰时段执行大量同步
-- 考虑网络带宽限制
+### 4. 监控和维护
+- 定期检查同步结果和错误信息
+- 监控网络连接状态
+- 建立同步失败的告警机制
+- 定期清理过期的日志文件
 
 ## 系统要求
 
 - **Linux/Unix/macOS**: Bash 4.0+
-- **Windows**: Windows 7+ with PowerShell 3.0+
+- **Windows**: Windows 7+ （推荐 Windows 10+）
 - **Python**: 2.7+ 或 3.6+
 - **Git**: 2.0+
 - **网络**: 稳定的网络连接
 
 ## 故障排除
 
-如果遇到问题，请按以下步骤排查：
+### 常见问题诊断
 
-1. 检查系统要求是否满足
-2. 验证配置文件格式和内容
-3. 测试单个同步命令是否正常
-4. 查看详细日志输出
-5. 检查网络连接和认证信息
+1. **脚本无法启动**
+   - 检查文件权限：`chmod +x git_sync_batch.sh` (Linux/macOS)
+   - 检查文件路径是否正确
+   - 确保在正确的目录下执行
+
+2. **参数错误**
+   - 使用 `--help` 查看正确的参数格式
+   - 确保数值参数为正整数
+   - 检查参数拼写是否正确
+
+3. **配置文件问题**
+   - 验证配置文件存在：`ls -la batch_configs.txt`
+   - 检查文件内容格式：`cat batch_configs.txt`
+   - 确保文件不为空且包含有效命令
+
+4. **同步命令失败**
+   - 单独测试每个同步命令
+   - 检查 Git Sync Tool 的配置是否正确
+   - 验证网络连接和认证信息
+
+### 调试步骤
+
+1. **启用详细模式**
+   ```bash
+   ./git_sync_batch.sh --once --verbose
+   ```
+
+2. **逐步排查**
+   ```bash
+   # 测试配置文件
+   cat batch_configs.txt
+   
+   # 测试单个命令
+   python ./git_sync.py --config sync_config.yaml --verbose
+   
+   # 检查系统环境
+   python --version
+   git --version
+   ```
+
+3. **检查网络和认证**
+   - 验证 Git 远程仓库访问权限
+   - 检查网络连接稳定性
+   - 确认认证信息正确
 
 ## 技术支持
 
-如需帮助，请：
-1. 查看日志文件获取详细错误信息
-2. 使用 `--verbose` 模式获取更多调试信息
-3. 检查 Git Sync Tool 的主要文档和故障排除指南
+### 获取帮助
+1. **查看帮助信息**
+   ```bash
+   ./git_sync_batch.sh --help
+   ```
+
+2. **收集调试信息**
+   - 使用 `--verbose` 模式获取详细日志
+   - 保存错误信息和完整的执行日志
+   - 记录系统环境和配置信息
+
+3. **参考文档**
+   - 查看 Git Sync Tool 的主要文档
+   - 参考故障排除指南
+   - 检查配置示例和最佳实践
+
+## 版本信息
+
+### 当前版本特点
+- **简化架构**：移除复杂的守护进程功能，专注核心批量同步
+- **增强稳定性**：优化错误处理和参数验证
+- **改进用户体验**：更清晰的日志输出和统计信息
+- **跨平台兼容**：在 Linux/macOS 和 Windows 上稳定运行
+
+### 使用建议
+- 首次使用请先测试 `--once` 模式
+- 对于大型仓库，建议适当增加执行间隔
+- 定期检查同步结果和错误日志
+- 在生产环境中使用前请充分测试
 
 ---
 
