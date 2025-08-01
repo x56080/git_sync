@@ -2,7 +2,7 @@
 
 # Git Sync Batch Tool
 # Batch synchronization script for multiple git repositories
-# Author: Git Sync Tool Team
+# Author: XJH
 # Version: 1.0
 
 # Default configuration
@@ -305,9 +305,6 @@ run_daemon() {
     
     # Fork to background
     (
-        # Save PID
-        echo $$ > "$PID_FILE"
-        
         # Trap signals for graceful shutdown
         trap 'log_info "Daemon shutting down..."; rm -f "$PID_FILE"; exit 0' TERM INT
         
@@ -336,6 +333,9 @@ run_daemon() {
             done
         done
     ) &
+    
+    # Save the actual background process PID
+    echo $! > "$PID_FILE"
     
     # Wait a moment to ensure daemon started
     sleep 2
