@@ -44,6 +44,14 @@ if "%~1"=="-t" (
     set INTERVAL=%~2
     shift
 )
+if "%~1"=="--log-dir" (
+    set LOG_DIR=%~2
+    shift
+)
+if "%~1"=="-l" (
+    set LOG_DIR=%~2
+    shift
+)
 shift
 goto parse_args
 :after_args
@@ -89,23 +97,27 @@ if /i "%RUN_ONCE%"=="true" (
         if not "!LINE!"=="" if "!LINE:~0,1!" NEQ "#" (
             set /a TOTAL+=1
             echo [INFO] Executing: !LINE!
-            echo Running: !LINE! >> "!LOG_FILE!"
-            cmd /c !LINE!
+            echo [INFO] Executing: !LINE! >> "!LOG_FILE!"
+            cmd /c !LINE! >> "!LOG_FILE!" 2>&1
             if !errorlevel! NEQ 0 (
                 echo [ERROR] Command failed: !LINE!
+                echo [ERROR] Command failed: !LINE! >> "!LOG_FILE!"
             ) else (
                 set /a OK+=1
+                echo [SUCCESS] Command completed: !LINE! >> "!LOG_FILE!"
             )
         )
     )
     
     set /a FAILED=!TOTAL! - !OK!
     echo [INFO] Round !ROUND! - Total: !TOTAL!, Success: !OK!, Failed: !FAILED!
+    echo [INFO] Round !ROUND! - Total: !TOTAL!, Success: !OK!, Failed: !FAILED! >> "!LOG_FILE!"
     echo.
     
     if !ROUND! lss %COUNT% (
         if %INTERVAL% gtr 0 (
             echo [INFO] Waiting %INTERVAL% seconds before next execution...
+            echo [INFO] Waiting %INTERVAL% seconds before next execution... >> "!LOG_FILE!"
             timeout /t %INTERVAL% /nobreak >nul
             echo.
         )
@@ -133,6 +145,7 @@ echo     -o, --once               Run synchronization and exit
 echo     -n, --count NUMBER       Number of execution rounds (default: 1)
 echo     -t, --interval SECONDS   Wait time between executions in seconds (default: 3600)
 echo     -c, --config-list FILE   Specify config list file (default: batch_configs.txt)
+echo     -l, --log-dir DIR        Specify log directory (default: ./logs)
 echo     -v, --verbose            Enable verbose logging
 echo     -h, --help               Show this help message
 echo.
