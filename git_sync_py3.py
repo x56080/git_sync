@@ -1225,17 +1225,17 @@ class GitSyncTool:
                     # Ensure we're on the correct destination branch
                     try:
                         # Check if destination branch exists in origin
-                        self._run_git_command('git show-ref --verify refs/remotes/origin/%s' % dest_branch, cwd=work_dir, check_output=True)
+                        self._run_git_command('git show-ref --verify "refs/remotes/origin/%s"' % dest_branch, cwd=work_dir, check_output=True)
                         # Origin branch exists, check if local branch exists
                         try:
-                            self._run_git_command('git show-ref --verify refs/heads/%s' % dest_branch, cwd=work_dir, check_output=True)
+                            self._run_git_command('git show-ref --verify "refs/heads/%s"' % dest_branch, cwd=work_dir, check_output=True)
                             # Local branch exists, switch and reset to origin
-                            self._run_git_command('git checkout --force %s' % dest_branch, cwd=work_dir)
-                            self._run_git_command('git reset --hard origin/%s' % dest_branch, cwd=work_dir)
+                            self._run_git_command('git checkout --force "%s"' % dest_branch, cwd=work_dir)
+                            self._run_git_command('git reset --hard "origin/%s"' % dest_branch, cwd=work_dir)
                             self.log_info("Switched to existing local branch %s and reset to origin" % dest_branch)
                         except:
                             # Local branch doesn't exist, create from origin
-                            self._run_git_command('git checkout --force -b "%s" origin/%s' % (dest_branch, dest_branch), cwd=work_dir)
+                            self._run_git_command('git checkout --force -b "%s" "origin/%s"' % (dest_branch, dest_branch), cwd=work_dir)
                             self.log_info("Created local branch %s from origin/%s" % (dest_branch, dest_branch))
                     except:
                         # Origin branch doesn't exist, create new branch from source
@@ -1263,7 +1263,7 @@ class GitSyncTool:
                                 else:
                                     self.log_debug("Skipping branch deletion in empty repository")
 
-                            self._run_git_command('git checkout --force -b "%s" source/%s' % (dest_branch, source_branch), cwd=work_dir)
+                            self._run_git_command('git checkout --force -b "%s" "source/%s"' % (dest_branch, source_branch), cwd=work_dir)
                             self._run_git_command('git reset --hard "%s"' % source_commit['hash'], cwd=work_dir)
                             self.log_info("Created new branch %s from source/%s" % (dest_branch, source_branch))
 
