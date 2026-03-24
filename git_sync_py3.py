@@ -1307,7 +1307,7 @@ class GitSyncTool:
                             try:
                                 # No LFS needed, cherry-pick all commits at once
                                 if last_synced_commit:
-                                    self._run_git_command('git cherry-pick %s..%s' % (last_synced_commit, source_commit['hash']), cwd=work_dir)
+                                    self._run_git_command('git cherry-pick --allow-empty %s..%s' % (last_synced_commit, source_commit['hash']), cwd=work_dir)
                                 elif not is_full_sync:
                                     # Check if this commit already exists in current branch
                                     try:
@@ -1315,7 +1315,7 @@ class GitSyncTool:
                                         if current_head == source_commit['hash']:
                                             self.log_info("Branch is already up to date, no commits to cherry-pick")
                                         else:
-                                            self._run_git_command('git cherry-pick %s' % source_commit['hash'], cwd=work_dir)
+                                            self._run_git_command('git cherry-pick --allow-empty %s' % source_commit['hash'], cwd=work_dir)
                                     except Exception as e:
                                         # If we can't get HEAD, continue with cherry-pick
                                         self.log_error("Failed to get HEAD, continue with cherry-pick: %s" % str(e))
@@ -1517,7 +1517,7 @@ class GitSyncTool:
             
             # Cherry-pick the commit
             if current_commit != commit_hash:
-                self._run_git_command('git cherry-pick %s' % commit_hash, cwd=work_dir)
+                self._run_git_command('git cherry-pick --allow-empty %s' % commit_hash, cwd=work_dir)
             
             # Check for large files and setup LFS if needed (auto-enable if required)
             self.log_debug("Checking for large files and setup LFS if needed")
