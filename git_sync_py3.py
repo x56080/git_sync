@@ -837,6 +837,39 @@ class GitSyncTool:
         
         return None
     
+    def _is_merge_commit(self, work_dir, commit_hash):
+        """Check if a commit is a merge commit (has more than one parent)"""
+        try:
+            output = self._run_git_command('git cat-file -p %s' % commit_hash, cwd=work_dir, check_output=True)
+            parent_count = 0
+            for line in output.split('\n'):
+                if line.startswith('parent '):
+                    parent_count += 1
+            return parent_count > 1
+        except:
+            return False
+
+    def _cherry_pick_one(self, work_dir, commit_hash):
+        """Cherry-pick a single commit, automatically handling merge commits and empty results"""
+        try:
+            if self._is_merge_commit(work_dir, commit_hash):
+                self._run_git_command('git cherry-pick --allow-empty -m 1 %s' % commit_hash, cwd=work_dir)
+            else:
+                self._run_git_command('git cherry-pick --allow-empty %s' % commit_hash, cwd=work_dir)
+        except Exception as e:
+            error_msg = str(e)
+            # Handle empty cherry-pick: git stops and asks for manual commit --allow-empty
+            if 'allow-empty' in error_msg or 'empty' in error_msg.lower():
+                self.log_info("Empty cherry-pick detected for %s, committing as empty" % commit_hash[:8])
+                try:
+                    self._run_git_command('git commit --allow-empty --no-edit', cwd=work_dir)
+                except Exception as commit_err:
+                    # If commit also fails, skip this commit by resetting
+                    self.log_warn("Failed to commit empty cherry-pick for %s, skipping: %s" % (commit_hash[:8], str(commit_err)))
+                    self._run_git_command('git cherry-pick --abort', cwd=work_dir)
+            else:
+                raise
+
     def _calculate_changes_size(self, repo_dir, from_commit=None, to_commit=None):
         """Calculate total size of changes between commits, handling LFS files correctly"""
         try:
@@ -1305,9 +1338,16 @@ class GitSyncTool:
 
                         if not lfs_enabled:
                             try:
-                                # No LFS needed, cherry-pick all commits at once
+                                # No LFS needed, cherry-pick commits one by one to handle merge commits
                                 if last_synced_commit:
-                                    self._run_git_command('git cherry-pick --allow-empty %s..%s' % (last_synced_commit, source_commit['hash']), cwd=work_dir)
+                                    # Get list of commits to cherry-pick
+                                    commits_output = self._run_git_command(
+                                        'git rev-list --reverse %s..%s' % (last_synced_commit, source_commit['hash']),
+                                        cwd=work_dir, check_output=True)
+                                    commits = [c.strip() for c in commits_output.strip().split('\n') if c.strip()]
+                                    self.log_info("Cherry-picking %d commits" % len(commits))
+                                    for c in commits:
+                                        self._cherry_pick_one(work_dir, c)
                                 elif not is_full_sync:
                                     # Check if this commit already exists in current branch
                                     try:
@@ -1315,7 +1355,7 @@ class GitSyncTool:
                                         if current_head == source_commit['hash']:
                                             self.log_info("Branch is already up to date, no commits to cherry-pick")
                                         else:
-                                            self._run_git_command('git cherry-pick --allow-empty %s' % source_commit['hash'], cwd=work_dir)
+                                            self._cherry_pick_one(work_dir, source_commit['hash'])
                                     except Exception as e:
                                         # If we can't get HEAD, continue with cherry-pick
                                         self.log_error("Failed to get HEAD, continue with cherry-pick: %s" % str(e))
@@ -1517,7 +1557,7 @@ class GitSyncTool:
             
             # Cherry-pick the commit
             if current_commit != commit_hash:
-                self._run_git_command('git cherry-pick --allow-empty %s' % commit_hash, cwd=work_dir)
+                self._cherry_pick_one(work_dir, commit_hash)
             
             # Check for large files and setup LFS if needed (auto-enable if required)
             self.log_debug("Checking for large files and setup LFS if needed")
