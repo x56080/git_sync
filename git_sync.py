@@ -536,43 +536,53 @@ class GitSyncTool(object):
         # Use unified work directory
         work_dir = os.path.join(repo.workspace_path, repo.name, 'sync_work')
         
+        default_state = {
+            'last_sync': None,
+            'synced_branches': {},
+            'last_commits': {}
+        }
+        
         try:
             # Ensure work directory is set up with proper remotes
             self._setup_unified_work_dir(work_dir, repo)
             
             # Fetch latest changes from origin (destination repository)
-            self._run_git_command('git fetch origin --prune', cwd=work_dir)
-            
-            # Check if sync_state branch exists on origin
+            fetch_ok = True
             try:
-                # First check if origin/sync_state exists
+                self._run_git_command('git fetch origin --prune', cwd=work_dir)
+            except Exception as fetch_err:
+                fetch_ok = False
+                self.log_warn("Failed to fetch origin: %s" % str(fetch_err))
+                self.log_info("Will try to use locally cached sync_state branch")
+            
+            # Check if sync_state branch exists on origin (or in local cache)
+            try:
+                # First check if origin/sync_state exists (works with local cache even if fetch failed)
                 self._run_git_command('git show-ref --verify refs/remotes/origin/sync_state', cwd=work_dir, check_output=True)
                 # If it exists, checkout the branch
                 self._run_git_command('git checkout -B sync_state origin/sync_state', cwd=work_dir)
-                self.log_info("Found existing sync_state branch")
+                if fetch_ok:
+                    self.log_info("Found existing sync_state branch")
+                else:
+                    self.log_info("Using locally cached sync_state branch (fetch failed)")
             except:
                 # sync_state branch doesn't exist, return default state
                 self.log_info("No sync_state branch found, using default state")
-                return {
-                    'last_sync': None,
-                    'synced_branches': {},
-                    'last_commits': {}
-                }
+                return default_state
             
             # Read sync_state.json from the branch
             state_file = os.path.join(work_dir, 'sync_state.json')
             if os.path.exists(state_file):
                 with open(state_file, 'r') as f:
                     state = json.load(f)
-                    self.log_info("Successfully loaded sync state from remote")
+                    if fetch_ok:
+                        self.log_info("Successfully loaded sync state from remote")
+                    else:
+                        self.log_info("Successfully loaded sync state from local cache")
                     return state
             else:
                 self.log_info("No sync_state.json found in sync_state branch")
-                return {
-                    'last_sync': None,
-                    'synced_branches': {},
-                    'last_commits': {}
-                }
+                return default_state
                 
         except Exception as e:
             # Handle potential encoding issues with Chinese characters
@@ -581,11 +591,7 @@ class GitSyncTool(object):
             except:
                 error_msg = repr(e)
             self.log_warn("Failed to fetch sync state: %s" % error_msg)
-            return {
-                'last_sync': None,
-                'synced_branches': {},
-                'last_commits': {}
-            }
+            return default_state
     
     def _setup_unified_work_dir(self, work_dir, repo):
         """Setup unified work directory with source and destination remotes"""
