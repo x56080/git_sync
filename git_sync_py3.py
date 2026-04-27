@@ -35,8 +35,13 @@ import logging
 import json
 import re
 import shutil
+import signal
+import threading
 from datetime import datetime
 from collections import defaultdict
+
+# Default timeout for git commands (seconds)
+GIT_COMMAND_TIMEOUT = 1800
 
 # Global configuration and state
 class GitSyncConfig:
@@ -346,12 +351,32 @@ class GitSyncTool:
         # For SSH URLs or URLs without credentials, return as-is
         return url
     
-    def _run_git_command(self, cmd, cwd=None, check_output=False):
-        """Execute git command with proper error handling and output control"""
+    def _run_git_command(self, cmd, cwd=None, check_output=False, timeout=None):
+        """Execute git command with proper error handling, output control and timeout
+        
+        Args:
+            cmd: Command string to execute
+            cwd: Working directory
+            check_output: If True, capture and return stdout
+            timeout: Timeout in seconds (default: GIT_COMMAND_TIMEOUT)
+        """
+        if timeout is None:
+            timeout = GIT_COMMAND_TIMEOUT
+        
         try:
             if check_output:
-                # Always capture output when check_output=True
-                result = subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT, shell=True)
+                # Use Popen with timeout
+                proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+                timer = threading.Timer(timeout, self._kill_process, [proc, cmd])
+                try:
+                    timer.start()
+                    result, _ = proc.communicate()
+                finally:
+                    timer.cancel()
+                
+                if proc.returncode != 0:
+                    raise subprocess.CalledProcessError(proc.returncode, cmd, output=result)
+                
                 # Try multiple encoding methods to decode the output
                 try:
                     return result.decode('utf-8').strip()
@@ -363,25 +388,29 @@ class GitSyncTool:
             else:
                 # Control output based on verbose mode
                 if self.verbose:
-                    # In verbose mode, allow git output to be displayed
-                    subprocess.check_call(cmd, cwd=cwd, shell=True)
+                    proc = subprocess.Popen(cmd, cwd=cwd, shell=True)
                 else:
-                    # In non-verbose mode, suppress stdout but capture stderr for error reporting
-                    with open(os.devnull, 'w') as devnull:
-                        subprocess.check_call(cmd, cwd=cwd, shell=True, stdout=devnull)
-                    return None
+                    devnull = open(os.devnull, 'w')
+                    proc = subprocess.Popen(cmd, cwd=cwd, shell=True, stdout=devnull)
+                
+                timer = threading.Timer(timeout, self._kill_process, [proc, cmd])
+                try:
+                    timer.start()
+                    proc.wait()
+                finally:
+                    timer.cancel()
+                    if not self.verbose:
+                        devnull.close()
+                
+                if proc.returncode != 0:
+                    raise subprocess.CalledProcessError(proc.returncode, cmd)
+                return None
         except subprocess.CalledProcessError as e:
             # Handle encoding issues in command and output
-            try:
-                if isinstance(cmd, unicode):
-                    cmd_str = cmd.encode('utf-8')
-                else:
-                    cmd_str = cmd
-            except:
-                cmd_str = repr(cmd)
+            cmd_str = cmd if isinstance(cmd, str) else repr(cmd)
         
             try:
-                error_msg = u"Git command failed: %s" % cmd_str
+                error_msg = "Git command failed: %s" % cmd_str
                 # Always show error output regardless of verbose mode
                 if hasattr(e, 'output') and e.output:
                     try:
@@ -391,13 +420,29 @@ class GitSyncTool:
                             error_output = e.output.decode('gbk')
                         except UnicodeDecodeError:
                             error_output = e.output.decode('utf-8', errors='ignore')
-                    error_msg += u"\nOutput: %s" % error_output
-            except UnicodeDecodeError:
+                    error_msg += "\nOutput: %s" % error_output
+            except Exception:
                 # Fallback to safe representation
                 error_msg = "Git command failed: %s" % repr(cmd)
                 if hasattr(e, 'output') and e.output:
                     error_msg += "\nOutput: %s" % repr(e.output)
             raise Exception(error_msg)
+    
+    def _kill_process(self, proc, cmd):
+        """Kill a timed-out process and its children"""
+        try:
+            self.log_error("Git command timed out after %d seconds: %s" % (GIT_COMMAND_TIMEOUT, cmd))
+            # Kill the process group on Unix, or just the process on Windows
+            try:
+                os.kill(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            try:
+                proc.kill()
+            except OSError:
+                pass
+        except:
+            pass
     
     def _get_file_size_mb(self, file_path):
         """Get file size in MB"""
