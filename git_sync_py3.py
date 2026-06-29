@@ -1081,6 +1081,9 @@ class GitSyncTool:
             self.log_info("Fetching latest changes from destination repositories")
             self._run_git_command('git fetch origin --prune', cwd=work_dir)
             
+            # Snapshot last_commits so partial step-by-step progress can be persisted on failure
+            initial_last_commits = dict(sync_state.get('last_commits') or {})
+
             # Sync each branch
             synced_count = 0
             skipped_count = 0
@@ -1135,11 +1138,14 @@ class GitSyncTool:
             except Exception as push_error:
                 self.log_warn("Failed to push tags: %s" % str(push_error))
             
-            # Update sync state only if branches were actually synced
+            # Update sync state after successful syncs, or persist partial commit progress
             if synced_count > 0:
                 sync_state['last_sync'] = datetime.now().isoformat()
                 self._save_sync_state(repo, sync_state)
                 self.log_info("Sync state updated with new timestamp")
+            elif sync_state.get('last_commits') != initial_last_commits:
+                self._save_sync_state(repo, sync_state)
+                self.log_info("Sync state saved with partial commit progress after failure")
             else:
                 self.log_info("No branches synced, sync state unchanged")
             
@@ -1378,7 +1384,8 @@ class GitSyncTool:
                     if total_size > repo.lfs_threshold:
                         # Split into individual commits (each commit is pushed individually)
                         self.log_info("Large changes detected (%.2f MB), syncing commit by commit" % total_size)
-                        self._sync_step_by_step(work_dir, repo, source_branch, last_synced_commit, source_commit['hash'], is_full_sync)
+                        if not self._sync_step_by_step(work_dir, repo, source_branch, last_synced_commit, source_commit['hash'], is_full_sync, sync_state, state_key):
+                            return 'failed'
                     else:
                         if is_full_sync:
                             # Full sync: check all files
@@ -1437,10 +1444,7 @@ class GitSyncTool:
                                 return 'failed'
 
                         else:
-                            try:
-                                self._sync_step_by_step(work_dir, repo, source_branch, last_synced_commit, source_commit['hash'], is_full_sync)
-                            except Exception as step_error:
-                                self.log_error("Failed to sync step by step for branch %s: %s" % (source_branch, str(step_error)))
+                            if not self._sync_step_by_step(work_dir, repo, source_branch, last_synced_commit, source_commit['hash'], is_full_sync, sync_state, state_key):
                                 return 'failed'
 
                 # Update sync state only after successful push
@@ -1645,7 +1649,7 @@ class GitSyncTool:
             self.log_error("Failed to sync commit %s: %s" % (commit_hash, str(e)))
             return False
 
-    def _sync_step_by_step(self, work_dir, repo, source_branch, last_synced_commit, to_commit, is_full_sync):
+    def _sync_step_by_step(self, work_dir, repo, source_branch, last_synced_commit, to_commit, is_full_sync, sync_state=None, state_key=None):
         """
         Sync a branch commit-by-commit up to a specified ref.
 
@@ -1656,6 +1660,8 @@ class GitSyncTool:
             last_synced_commit: SHA of the last synced commit (for incremental).
             to_commit: Target commit or ref to sync up to.
             is_full_sync: If True, ignore last_synced_commit and do full history.
+            sync_state: Optional sync state dict; last_commits is updated per pushed commit.
+            state_key: Key within last_commits for the branch being synced.
         """
         try:
             # Determine the end reference: explicit to_commit or remote branch tip
@@ -1702,7 +1708,7 @@ class GitSyncTool:
                     self._run_git_command('git reset --hard %s' % commits_to_sync[0], cwd=work_dir)
                 except Exception as e:
                     self.log_error("Failed to reset to first commit: %s" % str(e))
-                    pass
+                    return False
 
             # Process each commit in order
             process_count = 0
@@ -1718,6 +1724,12 @@ class GitSyncTool:
                 )
                 if not success:
                     return False
+
+                if sync_state is not None and state_key is not None:
+                    if sync_state.get('last_commits') is None:
+                        sync_state['last_commits'] = {}
+                    sync_state['last_commits'][state_key] = commit_hash
+                    self.log_debug("Updated sync state to commit %s" % commit_hash[:8])
 
             return True
 
